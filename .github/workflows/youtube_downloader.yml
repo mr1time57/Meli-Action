@@ -136,25 +136,42 @@ jobs:
           curl -sL -o "$OUTPUT_FOLDER/parts/$FILE_NAME" "$DL_URL"
           echo "Downloaded $FILE_NAME"
 
-      #- name: Split oversized files (optional)
-        #run: |
-          #OUTPUT_FOLDER="${{ github.event.inputs.output_folder }}"
-         # THRESH_MB=${{ github.event.inputs.max_part_mb }}
-      #    THRESH_BYTES=$((THRESH_MB * 1024 * 1024))
-       #   cd "$OUTPUT_FOLDER/parts"
-         # for f in *; do
-           # if [ -f "$f" ]; then
-              #fs=$(stat -c%s "$f")
-             # if [ "$THRESH_BYTES" -gt 0 ] && [ "$fs" -gt "$THRESH_BYTES" ]; then
-               # zip -r -s "${THRESH_MB}m" "../${f}.zip" "$f"
-                #rm "$f"
-             # else
-                #mv "$f" ..
-             # fi
-           # fi
-          #done
-          #cd ../..
-          #rm -rf "$OUTPUT_FOLDER/parts" "$OUTPUT_FOLDER/.download_info"
+            - name: Split oversized files (optional)
+         run: |
+          OUTPUT_FOLDER="${{ github.event.inputs.output_folder }}"
+          THRESH_MB=${{ github.event.inputs.max_part_mb }}
+          THRESH_BYTES=$((THRESH_MB * 1024 * 1024))
+          
+          echo "Split threshold: ${THRESH_MB} MB"
+          
+          # اگر THRESH_MB صفر باشه، اصلاً Split نکن
+          if [ "$THRESH_MB" -le 0 ]; then
+            echo "Split disabled (max_part_mb = 0)"
+            exit 0
+          fi
+          
+          cd "$OUTPUT_FOLDER/parts" 2>/dev/null || exit 0
+          
+          shopt -s nullglob   # جلوگیری از خطای for f in *
+          
+          for f in *; do
+            if [ -f "$f" ]; then
+              fs=$(stat -c%s "$f" 2>/dev/null || echo 0)
+              echo "File: $f - Size: $((fs / 1024 / 1024)) MB"
+              
+              if [ "$fs" -gt "$THRESH_BYTES" ]; then
+                echo "Splitting large file: $f"
+                zip -r -s "${THRESH_MB}m" "../${f}.zip" "$f"
+                rm "$f"
+              else
+                echo "Moving small file: $f"
+                mv "$f" ..
+              fi
+            fi
+          done
+          
+          cd ../..
+          rm -rf "$OUTPUT_FOLDER/parts" "$OUTPUT_FOLDER/.download_info" 2>/dev/null || true
 
       - name: Push changes to repository
         run: |
