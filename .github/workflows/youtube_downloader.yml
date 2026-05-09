@@ -136,35 +136,36 @@ jobs:
           curl -sL -o "$OUTPUT_FOLDER/parts/$FILE_NAME" "$DL_URL"
           echo "Downloaded $FILE_NAME"
 
-            - name: Split oversized files (optional)
-              run: |
-                OUTPUT_FOLDER="${{ github.event.inputs.output_folder }}"
-                THRESH_MB=${{ github.event.inputs.max_part_mb }}
-                THRESH_BYTES=$((THRESH_MB * 1024 * 1024))
+      - name: Split oversized files (optional)
+        run: |
+          OUTPUT_FOLDER="${{ github.event.inputs.output_folder }}"
+          THRESH_MB=${{ github.event.inputs.max_part_mb }}
+          THRESH_BYTES=$((THRESH_MB * 1024 * 1024))
           
-                echo "Split threshold: ${THRESH_MB} MB"
+          echo "Split threshold: ${THRESH_MB} MB"
           
-                # اگر THRESH_MB صفر باشه، اصلاً Split نکن
-                if [ "$THRESH_MB" -le 0 ]; then
-                echo "Split disabled (max_part_mb = 0)"
-                exit 0
-                fi
+          # اگر ۰ باشد، Split را کاملاً رد کن
+          if [ "$THRESH_MB" -le 0 ]; then
+            echo "Split is disabled"
+            exit 0
+          fi
           
-                cd "$OUTPUT_FOLDER/parts" 2>/dev/null || exit 0
+          # ورود به پوشه parts (اگر وجود نداشت خارج شو)
+          cd "$OUTPUT_FOLDER/parts" 2>/dev/null || exit 0
           
-                shopt -s nullglob   # جلوگیری از خطای for f in *
+          shopt -s nullglob   # جلوگیری از خطای for f in *
           
-                for f in *; do
-                if [ -f "$f" ]; then
-                fs=$(stat -c%s "$f" 2>/dev/null || echo 0)
-                echo "File: $f - Size: $((fs / 1024 / 1024)) MB"
+          for f in *; do
+            if [ -f "$f" ]; then
+              fs=$(stat -c%s "$f" 2>/dev/null || echo 0)
+              echo "File: $f → $((fs / 1024 / 1024)) MB"
               
               if [ "$fs" -gt "$THRESH_BYTES" ]; then
-                echo "Splitting large file: $f"
+                echo "→ Splitting large file: $f"
                 zip -r -s "${THRESH_MB}m" "../${f}.zip" "$f"
                 rm "$f"
               else
-                echo "Moving small file: $f"
+                echo "→ Moving file: $f"
                 mv "$f" ..
               fi
             fi
