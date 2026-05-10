@@ -144,16 +144,14 @@ jobs:
           
           echo "Split threshold: ${THRESH_MB} MB"
           
-          # اگر ۰ باشد، Split را کاملاً رد کن
           if [ "$THRESH_MB" -le 0 ]; then
             echo "Split is disabled"
             exit 0
           fi
           
-          # ورود به پوشه parts (اگر وجود نداشت خارج شو)
           cd "$OUTPUT_FOLDER/parts" 2>/dev/null || exit 0
           
-          shopt -s nullglob   # جلوگیری از خطای for f in *
+          shopt -s nullglob
           
           for f in *; do
             if [ -f "$f" ]; then
@@ -166,14 +164,13 @@ jobs:
                 rm "$f"
               else
                 echo "→ Moving file: $f"
-                mv "$f" ..
+                mv -- "$f" ..     # ← مهم: اضافه شدن --
               fi
             fi
           done
           
           cd ../..
           rm -rf "$OUTPUT_FOLDER/parts" "$OUTPUT_FOLDER/.download_info" 2>/dev/null || true
-
       - name: Push changes to repository
         run: |
           git config user.name "github-actions[bot]"
